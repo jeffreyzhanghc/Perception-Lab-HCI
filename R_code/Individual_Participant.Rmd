@@ -8,10 +8,13 @@ output: html_document
 
 ```{r, echo=TRUE}
 #import library and dataset
-library("readxl")
-library("dplyr")
-library("imputeTS")
-data = read_excel("22_1_TTCtactile2IFC.mat.xlsx")
+library(readxl)
+library(dplyr)
+library(imputeTS)
+library(quickpsy)
+library(ggplot2)
+library(pracma)
+data = read_excel("/Users/mac/Desktop/21_1_TTCtactile2IFC.mat.xlsx")
 data$pickComp=0
 data$pickComp = ifelse(data$positionComp==data$response,1,0)
 #pick comp as earlier
@@ -41,34 +44,40 @@ plot(grouped_2$diff,grouped_2$percentage,type="l",main="TTCstandard=1.5",
      xlab = "TTC Difference (Comparison – Standard)",ylab="P(Comparison Stimulus Earlier)",
      xaxt='n',ylim=c(0,1))
 axis(side=1,at=c(-1.2, -0.8, -0.4,0, 0.4,0.8,1.2))
+```
 
-#test
-#fit 
-#install.packages("quickpsy")
-library(quickpsy)
-library(ggplot2)
-fit = quickpsy(grouped_1,diff,pickComp,numTrials)
-pData <- ggplot(grouped_1, aes(x = diff, y = percentage)) + 
-  geom_point()
+```{r, echo=TRUE}
+#Fit the Psychometric Curve
+#not constrained
+fit_psychometric <- function(data){
+  fit_standard0.75 = quickpsy(grouped_1,diff,pickComp,numTrials)
+  pData <- ggplot(grouped_1, aes(x = diff, y = percentage)) + 
+           geom_point()
+  PSF_result <- pData +
+    geom_line(data= fit_standard0.75$curves, aes(x = x, y = y))+
+    xlim(-1.5,1.5)
+  
+  #constrained
+  p<- ggplot()+
+    geom_point(data=data,aes(x=diff,y=percentage))
+  Negativie_log_lik <- function(p) { # negative log likelihood
+    phi <- pnorm(data$diff, p[1], p[2]) 
+    -sum(data$pickComp * log(phi) + (data$numTrials - data$pickComp) * log(1 - phi) )
+  }
+  para <- optim(c(.7, .7), Negativie_log_lik)$par
+  xseq <- seq(-1.5, 1.5, .01)
+  yseq <- pnorm(xseq, para[1], para[2])
+  curve <- data.frame(xseq, yseq)
+  p_final<-p + geom_line(data = curve,aes(x = xseq, y = yseq))
+  
+  plot(PSF_result)
+  plot(p_final)
+}
 
+```
 
-PSF_result <- pData +
-  geom_line(data= fit$curves, aes(x = x, y = y))
-
-PSF_result
-
-
-
-grouped_1$npickComp = grouped_1$numTrials-grouped_1$pickComp
-model <- glm( cbind(pickComp, npickComp) ~ diff, data= grouped_1, family = binomial(probit))
-
-xseq <- seq(-0.5, 0.5, .01)
-yseq <- predict(model, data.frame(diff = xseq), type = 'response')
-curve <- data.frame(xseq, yseq)
-
-p <- ggplot() +
-  geom_point(data = grouped_1, aes(x = diff, y = percentage)) +
-  geom_line(data = curve,aes(x = xseq, y = yseq))
-p
+```{r, echo=TRUE}
+fit_psychometric(grouped_1)
+fit_psychometric(grouped_2)
 ```
 
