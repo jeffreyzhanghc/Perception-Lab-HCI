@@ -14,7 +14,7 @@ library(imputeTS)
 library(quickpsy)
 library(ggplot2)
 library(pracma)
-data = read_excel("/Users/mac/Desktop/21_1_TTCtactile2IFC.mat.xlsx")
+data = read_excel("/Users/mac/Desktop/23_1_TTCtactile2IFC.mat.xlsx")
 data$pickComp=0
 data$pickComp = ifelse(data$positionComp==data$response,1,0)
 #pick comp as earlier
@@ -31,9 +31,13 @@ grouped$diff = grouped$TTCcomp-grouped$TTCstandard
 colnames(grouped)[3]="numTrials"
 colnames(grouped)[4]="pickComp"
 
-#standard=0.75
+#two dataframes for different TTstandard
 grouped_1 = grouped[grouped$TTCstandard==0.75,]
 grouped_2 = grouped[grouped$TTCstandard==1.5,]
+grouped_1$percentage_later = 1-grouped_1$percentage
+grouped_2$percentage_later = 1-grouped_2$percentage
+
+#standard=0.75
 plot(grouped_1$diff,grouped_1$percentage,type="l",main="TTCstandard=0.75",
      xlab = "TTC Difference (Comparison – Standard)",ylab="P(Comparison Stimulus Earlier)",
      xaxt='n',ylim=c(0,1))
@@ -49,13 +53,17 @@ axis(side=1,at=c(-1.2, -0.8, -0.4,0, 0.4,0.8,1.2))
 ```{r, echo=TRUE}
 #Fit the Psychometric Curve
 #not constrained
-fit_psychometric <- function(data){
-  fit_standard0.75 = quickpsy(grouped_1,diff,pickComp,numTrials)
+
+fit_psychometric <- function(data,standard){
+  fit = quickpsy(grouped_1,diff,pickComp,numTrials)
   pData <- ggplot(grouped_1, aes(x = diff, y = percentage)) + 
            geom_point()
   PSF_result <- pData +
-    geom_line(data= fit_standard0.75$curves, aes(x = x, y = y))+
-    xlim(-1.5,1.5)
+                geom_line(data= fit$curves, aes(x = x, y = y))+
+                xlim(-1.5,1.5)+
+                ggtitle(paste0("Unconstrained PSF when Standard = ", standard))+
+                xlab("TTC Difference (Comparison – Standard)")+
+                ylab("P(Comparison Stimulus Earlier)")
   
   #constrained
   p<- ggplot()+
@@ -68,7 +76,10 @@ fit_psychometric <- function(data){
   xseq <- seq(-1.5, 1.5, .01)
   yseq <- pnorm(xseq, para[1], para[2])
   curve <- data.frame(xseq, yseq)
-  p_final<-p + geom_line(data = curve,aes(x = xseq, y = yseq))
+  p_final<-p + geom_line(data = curve,aes(x = xseq, y = yseq))+
+           ggtitle(paste0("Constrained PSF when Standard = ", standard))+
+           xlab("TTC Difference (Comparison – Standard)")+
+          ylab("P(Comparison Stimulus Earlier)")
   
   plot(PSF_result)
   plot(p_final)
@@ -77,7 +88,11 @@ fit_psychometric <- function(data){
 ```
 
 ```{r, echo=TRUE}
-fit_psychometric(grouped_1)
-fit_psychometric(grouped_2)
+fit_psychometric(grouped_1,0.75)
+fit_psychometric(grouped_2,1.5)
 ```
 
+```{r, echo=TRUE}
+grouped_1
+grouped_2
+```
